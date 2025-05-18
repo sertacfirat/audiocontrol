@@ -2,7 +2,7 @@
 
 **Full Changelog**: Bottom of this page
 
-**If you are a Headphone or Voice Chat user, sound options in Windows don't always trigger audio output device changes in WoW, and I know every second is precious when you are about to start combat. This is why I started this project for enabling instant sound adjustments!**
+**If you are a Headphone or Voice Chat user, output changes in Windows doesn't trigger audio output device changes in game unless you do it yourself by going in game options menu and lose your precious seconds when you are about to start combat. This is why i started this project for enabling instant sound adjustments!**
 
 Tired of digging through the main game settings every time you want to adjust your sound? Audio Control provides a sleek, easy-to-access panel for managing your most common World of Warcraft sound settings!
 
