@@ -29,7 +29,7 @@ local NUM_OUTPUT_DEVICE_ROWS = 1
 local TOTAL_ROWS = NUM_ROWS_WITH_SLIDERS + NUM_OUTPUT_DEVICE_ROWS
 
 local CONTENT_PANE_WIDTH = X_PADDING_MENU_EDGE + LABEL_FIXED_WIDTH + PADDING_LABEL_TO_CHECKBOX +
-                             CHECKBOX_WIDGET_FRAME_WIDTH + 
+                             CHECKBOX_WIDGET_FRAME_WIDTH +
                              PADDING_CHECKBOX_TO_SLIDER + SLIDER_W_VALUE +
                              PADDING_SLIDER_TO_PERCENT_TEXT + PERCENT_TEXT_FIXED_WIDTH + X_PADDING_MENU_EDGE
 
@@ -84,7 +84,7 @@ local function DebugPrint(msg)
 end
 
 local UpdateAllSoundSettings, ToggleMenu, CreateMenuControls, CreateTriggerButton, UpdateTriggerButtonLook
-local GenerateAudioDeviceMenu_BlizzMenu, GetCurrentDeviceName
+local GenerateAudioDeviceMenu_BlizzMenu, GetCurrentDeviceName, RestartSoundSystem
 
 local function SetAppFont(fontString, size, style, r, g, b, a, fontFile)
     fontString:SetFont(fontFile or DEFAULT_FONT_FILE, size, style or DEFAULT_FONT_STYLE)
@@ -150,9 +150,7 @@ UpdateAllSoundSettings = function(forceUpdate)
     local function safeSetValue(sliderFrame, cvarName, textWidget)
         if not sliderFrame then return end
         local vS = GetCVar(cvarName); local vN = tonumber(vS)
-        if type(vN) ~= "number" then
-            vN = 0.5
-        end
+        if type(vN) ~= "number" then vN = 0.5 end
         vN = math.max(0, math.min(1, vN))
         if sliderFrame.SetValue then
             sliderFrame.programmaticChange = true
@@ -294,7 +292,7 @@ local function CreateVolumeSliderWithCheckbox(parent, enableCVarNameForNonMaster
     return actualCheckbox, sldrFrame, txt, rowFrame
 end
 
-local function GetNextValidDriverIndex(currentIdx, direction, numTotalDrivers)
+GetNextValidDriverIndex = function(currentIdx, direction, numTotalDrivers)
     if not Sound_GameSystem_GetOutputDriverNameByIndex then return currentIdx end
     local step = (direction == "next" and 1) or -1
     local nextIdx = currentIdx
@@ -312,6 +310,24 @@ local function GetNextValidDriverIndex(currentIdx, direction, numTotalDrivers)
     return currentIdx
 end
 
+RestartSoundSystem = function()
+    isSoundSystemRestarting = true
+    local restarted = false
+    if _G["SoundTools_RestartSoundSystem"] then SoundTools_RestartSoundSystem(); restarted = true
+    elseif _G["Sound_GameSystem_RestartSoundSystem"] then Sound_GameSystem_RestartSoundSystem(); restarted = true
+    elseif _G["AudioOptionsFrame_AudioRestart"] then AudioOptionsFrame_AudioRestart(); restarted = true
+    end
+
+    if not restarted then
+        DebugPrint("Sound system restart function not found.")
+        isSoundSystemRestarting = false
+        C_Timer.After(0.1, function() if UpdateAllSoundSettings then UpdateAllSoundSettings(true) end end)
+        return false, "Error: Could not restart sound system."
+    end
+    local newDeviceName = GetCurrentDeviceName()
+    return true, newDeviceName
+end
+
 GenerateAudioDeviceMenu_BlizzMenu = function(ownerDropdown, rootDescription)
     local currentDriverIndex = tonumber(C_CVar.GetCVar("Sound_OutputDriverIndex"))
     local function IsDeviceSelected(data) return data.value == currentDriverIndex end
@@ -322,19 +338,7 @@ GenerateAudioDeviceMenu_BlizzMenu = function(ownerDropdown, rootDescription)
         end
         SetCVar("Sound_OutputDriverIndex", newDriverIndex)
         PlaySound(SOUNDKIT.U_CHAT_SCROLL_BUTTON)
-        isSoundSystemRestarting = true
-        local restarted = false
-        if _G["SoundTools_RestartSoundSystem"] then SoundTools_RestartSoundSystem(); restarted = true
-        elseif _G["Sound_GameSystem_RestartSoundSystem"] then Sound_GameSystem_RestartSoundSystem(); restarted = true
-        elseif _G["AudioOptionsFrame_AudioRestart"] then AudioOptionsFrame_AudioRestart(); restarted = true
-        end
-        if not restarted then isSoundSystemRestarting = false
-            C_Timer.After(0.1, function()
-                if outputDeviceControl and outputDeviceControl.Dropdown then
-                    UIDropDownMenu_SetText(outputDeviceControl.Dropdown, GetCurrentDeviceName())
-                end
-            end)
-        end
+        RestartSoundSystem()
         return MenuResponse.CloseAll
     end
     local systemDefaultData = { text = SYSTEM_DEFAULT, value = 0 }
@@ -478,12 +482,7 @@ CreateMenuControls = function()
             local newVal = GetNextValidDriverIndex(idx, "previous", numDrivers)
             if GetCVar("Sound_OutputDriverIndex") ~= tostring(newVal) then
                 SetCVar("Sound_OutputDriverIndex", newVal); PlaySound(SOUNDKIT.U_CHAT_SCROLL_BUTTON)
-                isSoundSystemRestarting = true; local restarted = false
-                if _G["SoundTools_RestartSoundSystem"] then SoundTools_RestartSoundSystem(); restarted = true
-                elseif _G["Sound_GameSystem_RestartSoundSystem"] then Sound_GameSystem_RestartSoundSystem(); restarted = true
-                elseif _G["AudioOptionsFrame_AudioRestart"] then AudioOptionsFrame_AudioRestart(); restarted = true
-                end
-                if not restarted then isSoundSystemRestarting = false end
+                RestartSoundSystem()
             end
         end)
     end
@@ -494,12 +493,7 @@ CreateMenuControls = function()
             local newVal = GetNextValidDriverIndex(idx, "next", numDrivers)
             if GetCVar("Sound_OutputDriverIndex") ~= tostring(newVal) then
                 SetCVar("Sound_OutputDriverIndex", newVal); PlaySound(SOUNDKIT.U_CHAT_SCROLL_BUTTON)
-                isSoundSystemRestarting = true; local restarted = false
-                if _G["SoundTools_RestartSoundSystem"] then SoundTools_RestartSoundSystem(); restarted = true
-                elseif _G["Sound_GameSystem_RestartSoundSystem"] then Sound_GameSystem_RestartSoundSystem(); restarted = true
-                elseif _G["AudioOptionsFrame_AudioRestart"] then AudioOptionsFrame_AudioRestart(); restarted = true
-                end
-                if not restarted then isSoundSystemRestarting = false end
+                RestartSoundSystem()
             end
         end)
     end
@@ -558,42 +552,98 @@ CreateTriggerButton = function()
     end
     triggerButton:SetFrameStrata("MEDIUM"); triggerButton:SetFrameLevel(10)
     triggerButton:SetMovable(true); triggerButton:EnableMouse(true)
-    triggerButton:RegisterForDrag("RightButton"); triggerButton:SetClampedToScreen(true)
+    triggerButton:RegisterForDrag("LeftButton")
+    triggerButton:SetClampedToScreen(true)
+
     triggerButtonBackgroundTexture = triggerButton:CreateTexture(nil, "BACKGROUND");
     triggerButtonBackgroundTexture:SetAllPoints(triggerButton)
     triggerButtonText = triggerButton:CreateFontString(nil, "OVERLAY");
     SetAppFont(triggerButtonText, 10, "OUTLINE", 1,1,1)
     triggerButtonText:SetPoint("CENTER", triggerButton, "CENTER", 0, 0)
     UpdateTriggerButtonLook()
-    triggerButton:SetScript("OnClick", function(self, button)
-        if isTriggerDragging then C_Timer.After(0, function() isTriggerDragging = false end); return end
+
+    triggerButton:SetScript("OnMouseDown", function(self, button)
+        if isTriggerDragging then return end
+
         if button == "LeftButton" then
             if IsAltKeyDown() then
-                AudioControlDB.triggerPosition = defaultTriggerPosition
-                if triggerButton then triggerButton:ClearAllPoints(); local p = AudioControlDB.triggerPosition; triggerButton:SetPoint(p.point, _G[p.relativeTo] or UIParent, p.relativePoint, p.x, p.y) end
-                if menuFrame and menuFrame:IsShown() then menuFrame:Hide(); UpdateTriggerButtonLook() end
-                print(DISPLAY_ADDON_NAME .. ": Trigger position reset.")
+                -- Sürükleme OnDragStart'ta ele alınacak
             elseif IsShiftKeyDown() then
                 local cs = GetCVarBool("Sound_EnableAllSound") == true
                 SetCVar("Sound_EnableAllSound", not cs and 1 or 0); PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
                 UpdateAllSoundSettings(false); UpdateTriggerButtonLook()
-            else ToggleMenu() end
+            else
+                ToggleMenu()
+            end
+        elseif button == "RightButton" then
+            if IsShiftKeyDown() then
+                local currentDeviceIndex = tonumber(C_CVar.GetCVar("Sound_OutputDriverIndex"))
+                local numDrivers = Sound_GameSystem_GetNumOutputDrivers and Sound_GameSystem_GetNumOutputDrivers() or 0
+                local nextDeviceIndex = GetNextValidDriverIndex(currentDeviceIndex, "next", numDrivers)
+
+                if GetCVar("Sound_OutputDriverIndex") ~= tostring(nextDeviceIndex) then
+                    SetCVar("Sound_OutputDriverIndex", nextDeviceIndex)
+                    PlaySound(SOUNDKIT.U_CHAT_SCROLL_BUTTON)
+                    local success, resultMessage = RestartSoundSystem()
+
+                    if not (menuFrame and menuFrame:IsShown()) then
+                        if success then
+                            DEFAULT_CHAT_FRAME:AddMessage(DISPLAY_ADDON_NAME .. ": Output device changed to |cFF00FF00" .. tostring(resultMessage) .. "|r.")
+                        else
+                            DEFAULT_CHAT_FRAME:AddMessage(DISPLAY_ADDON_NAME .. ": |cFFFF0000" .. tostring(resultMessage) .. "|r")
+                        end
+                    end
+                else
+                    if not (menuFrame and menuFrame:IsShown()) then
+                         DEFAULT_CHAT_FRAME:AddMessage(DISPLAY_ADDON_NAME .. ": No other sound output device found or already on the next device.")
+                    end
+                end
+            elseif IsAltKeyDown() then
+                AudioControlDB.triggerPosition = defaultTriggerPosition
+                if triggerButton then
+                    triggerButton:ClearAllPoints()
+                    local p = AudioControlDB.triggerPosition
+                    triggerButton:SetPoint(p.point, _G[p.relativeTo] or UIParent, p.relativePoint, p.x, p.y)
+                end
+                if menuFrame and menuFrame:IsShown() then menuFrame:Hide() end
+                UpdateTriggerButtonLook()
+                print(DISPLAY_ADDON_NAME .. ": Trigger position reset.")
+            end
         end
     end)
+
     triggerButton:SetScript("OnDragStart", function(self, buttonArg)
-        if buttonArg == "RightButton" and IsShiftKeyDown() then self:StartMoving(); isTriggerDragging = true; if menuFrame and menuFrame:IsShown() then menuFrame:Hide(); UpdateTriggerButtonLook() end
-        else self:StopMovingOrSizing(); isTriggerDragging = false end
+        if buttonArg == "LeftButton" and IsAltKeyDown() then
+            self:StartMoving();
+            isTriggerDragging = true;
+            if menuFrame and menuFrame:IsShown() then menuFrame:Hide(); UpdateTriggerButtonLook() end
+        else
+            self:StopMovingOrSizing();
+            isTriggerDragging = false;
+        end
     end)
+
     triggerButton:SetScript("OnDragStop", function(self)
         self:StopMovingOrSizing()
         if not isTriggerDragging then return end
         local p, rf, rp, x, y = self:GetPoint()
         AudioControlDB.triggerPosition = { point = p, relativeTo = (rf and rf:GetName()) or "UIParent", relativePoint = rp, x = x, y = y }
-        isTriggerDragging = false
+        C_Timer.After(0, function() isTriggerDragging = false end)
     end)
+
     local kc = "|cFFFF9900"; local ac = "|cFF33FF33"; local rc = "|r"
-    triggerButton:SetScript("OnEnter", function(s) GameTooltip:SetOwner(s,"ANCHOR_RIGHT"); GameTooltip:AddLine(DISPLAY_ADDON_NAME); GameTooltip:AddLine(kc .. "Left Click" .. rc .. ac .. ": Toggle Menu" .. rc); GameTooltip:AddLine(kc .. "Shift + Left Click" .. rc .. ac .. ": Toggle All Sound" .. rc); GameTooltip:AddLine(kc .. "Shift + Right Click & Drag" .. rc .. ac .. ": Move Button" .. rc); GameTooltip:AddLine(kc .. "Alt + Left Click" .. rc .. ac .. ": Reset Button Position" .. rc); GameTooltip:Show() end)
-    triggerButton:SetScript("OnLeave", function(s) GameTooltip:Hide() end); triggerButton:Show()
+    triggerButton:SetScript("OnEnter", function(s)
+        GameTooltip:SetOwner(s,"ANCHOR_RIGHT");
+        GameTooltip:AddLine(DISPLAY_ADDON_NAME);
+        GameTooltip:AddLine(kc .. "Left Click" .. rc .. ac .. ": Toggle Menu" .. rc);
+        GameTooltip:AddLine(kc .. "Shift + Left Click" .. rc .. ac .. ": Toggle All Sound" .. rc);
+        GameTooltip:AddLine(kc .. "Shift + Right Click" .. rc .. ac .. ": Change Output Device" .. rc);
+        GameTooltip:AddLine(kc .. "Alt + Left Click & Drag" .. rc .. ac .. ": Move Button" .. rc);
+        GameTooltip:AddLine(kc .. "Alt + Right Click" .. rc .. ac .. ": Reset Button Position" .. rc);
+        GameTooltip:Show()
+    end)
+    triggerButton:SetScript("OnLeave", function(s) GameTooltip:Hide() end);
+    triggerButton:Show()
 end
 
 local eventFrame = CreateFrame("Frame");
@@ -656,4 +706,4 @@ SlashCmdList["AUDIOCONTROL"] = function(msg)
         print(DISPLAY_ADDON_NAME .. ": Trigger position reset.")
     end
 end
-print(DISPLAY_ADDON_NAME .. " " .. "2.0" .. " loaded. Commands: /aca or /audioc")
+print(DISPLAY_ADDON_NAME .. " " .. "2.1" .. " loaded. Commands: /aca or /audioc")
