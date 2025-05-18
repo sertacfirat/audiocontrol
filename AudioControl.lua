@@ -608,6 +608,22 @@ CreateTriggerButton = function()
                 if menuFrame and menuFrame:IsShown() then menuFrame:Hide() end
                 UpdateTriggerButtonLook()
                 print(DISPLAY_ADDON_NAME .. ": Trigger position reset.")
+            else -- Sadece Sağ Tık (modifier yok)
+                PlaySound(SOUNDKIT.U_CHAT_SCROLL_BUTTON) -- Bir ses efekti
+                local success, resultMessage = RestartSoundSystem()
+                if not (menuFrame and menuFrame:IsShown()) then -- Menü kapalıysa chat'e yaz
+                    if success then
+                        DEFAULT_CHAT_FRAME:AddMessage(DISPLAY_ADDON_NAME .. ": Sound system restarted. Current device: |cFF00FF00" .. tostring(resultMessage) .. "|r.")
+                    else
+                        DEFAULT_CHAT_FRAME:AddMessage(DISPLAY_ADDON_NAME .. ": |cFFFF0000" .. tostring(resultMessage) .. "|r")
+                    end
+                else -- Menü açıksa da bilgi verilebilir
+                     if success then
+                        DEFAULT_CHAT_FRAME:AddMessage(DISPLAY_ADDON_NAME .. ": Sound system restarted.")
+                    else
+                        DEFAULT_CHAT_FRAME:AddMessage(DISPLAY_ADDON_NAME .. ": |cFFFF0000Failed to restart sound system.|r")
+                    end
+                end
             end
         end
     end)
@@ -636,6 +652,7 @@ CreateTriggerButton = function()
         GameTooltip:SetOwner(s,"ANCHOR_RIGHT");
         GameTooltip:AddLine(DISPLAY_ADDON_NAME);
         GameTooltip:AddLine(kc .. "Left Click" .. rc .. ac .. ": Toggle Menu" .. rc);
+        GameTooltip:AddLine(kc .. "Right Click" .. rc .. ac .. ": Reset Audio System" .. rc); -- YENİ
         GameTooltip:AddLine(kc .. "Shift + Left Click" .. rc .. ac .. ": Toggle All Sound" .. rc);
         GameTooltip:AddLine(kc .. "Shift + Right Click" .. rc .. ac .. ": Change Output Device" .. rc);
         GameTooltip:AddLine(kc .. "Alt + Left Click & Drag" .. rc .. ac .. ": Move Button" .. rc);
@@ -706,4 +723,4 @@ SlashCmdList["AUDIOCONTROL"] = function(msg)
         print(DISPLAY_ADDON_NAME .. ": Trigger position reset.")
     end
 end
-print(DISPLAY_ADDON_NAME .. " " .. "2.1" .. " loaded. Commands: /aca or /audioc")
+print(DISPLAY_ADDON_NAME .. " " .. "2.2" .. " loaded. Commands: /aca or /audioc")
