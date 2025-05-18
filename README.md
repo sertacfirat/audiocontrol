@@ -1,4 +1,4 @@
-# Audio Control (v2.2)
+**Full Changelog**: Bottom of this page
 
 **If you are a Headphone or Voice Chat user, sound options in Windows don't always trigger audio output device changes in WoW, and I know every second is precious when you are about to start combat. This is why I started this project for enabling instant sound adjustments!**
 
@@ -104,3 +104,37 @@ For even quicker access or use in macros:
 *   **Lightweight & Clean:** Designed to be unobtrusive and performant.
 
 Enjoy a better audio management experience in World of Warcraft!
+
+
+
+Full Changelog:
+https://github.com/sertacfirat/audiocontrol/commits/2.2
+
+Change Log summary:
+
+Version 2.2 (20250518/3)
+- Added new Trigger Button functionality:
+    - Right Click (no modifiers): Resets the WoW sound system.
+        - Provides chat feedback on action.
+- Updated Trigger Button tooltips to reflect new right-click action.
+- Minor visual adjustments to trigger button icons for clarity.
+
+Version 2.1 (20250518/2)
+- Updated Trigger Button functionalities and tooltips:
+    - Shift + Right Click: Now cycles to the next sound output device.
+        - Provides chat feedback on device change when the panel is closed.
+    - Alt + Left Click & Drag: Now used to move the button.
+    - Alt + Right Click: Now resets the button position.
+- Minor internal code adjustments for stability.
+
+
+Version 2.0 (20250518)
+- Initial public release.
+- Added core functionality for managing WoW audio settings:
+    - Master Volume control (slider and mute).
+    - Individual channel controls for Music, Ambience, and Dialog (sliders and mutes).
+    - Sound output device switching via arrow buttons and a dropdown list.
+    - Draggable trigger button to show/hide the main panel, with its position saved per character.
+    - Trigger button displays Master Volume % or mute status.
+    - Slash commands: /audioc (or /aca) toggle, /audioc resetmenu.
+    - Panel can be closed with the ESC key.
