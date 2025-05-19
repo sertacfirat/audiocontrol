@@ -1,4 +1,4 @@
-# Audio Control (v2.2)
+# Audio Control (v2.3)
 
 **Full Changelog**: Bottom of this page
 
