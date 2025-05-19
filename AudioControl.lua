@@ -133,7 +133,9 @@ UpdateAllSoundSettings = function(forceUpdate)
 
     local sE = GetCVarBool("Sound_EnableAllSound") == true
     if enableSoundCheckbox.SetChecked then enableSoundCheckbox:SetChecked(sE) end
-    UpdateTriggerButtonLook()
+    if menuFrame:IsShown() or forceUpdate then
+        UpdateTriggerButtonLook()
+    end
 
     local dN = GetCurrentDeviceName()
     if outputDeviceControl and outputDeviceControl.Dropdown then
@@ -180,34 +182,120 @@ UpdateAllSoundSettings = function(forceUpdate)
     end
 end
 
+local function CheckRectOverlap(r1L, r1R, r1T, r1B, r2L, r2R, r2T, r2B)
+    return not (r1R < r2L or r1L > r2R or r1B > r2T or r1T < r2B)
+end
+
 ToggleMenu = function()
     if not menuFrame or not triggerButton then return end
+
     if menuFrame:IsShown() then
         menuFrame:Hide()
     else
         menuFrame:ClearAllPoints()
-        local sw, sh = GetScreenWidth(), GetScreenHeight(); local mw, mh = menuFrame:GetWidth(), menuFrame:GetHeight()
-        local tr, tl, tt, tb = triggerButton:GetRight(), triggerButton:GetLeft(), triggerButton:GetTop(), triggerButton:GetBottom()
-        local mp, mrt, mrp, mx, my = "TOPLEFT", triggerButton, "BOTTOMRIGHT", MENU_TO_TRIGGER_PADDING, -MENU_TO_TRIGGER_PADDING
-        local pml, pmta = tr + MENU_TO_TRIGGER_PADDING, math.abs(tb) + MENU_TO_TRIGGER_PADDING
-        if pml + mw > sw - SCREEN_EDGE_PADDING then mrp = "BOTTOMLEFT"; mx = -MENU_TO_TRIGGER_PADDING; pml = tl - MENU_TO_TRIGGER_PADDING - mw end
-        if pmta + mh > sh - SCREEN_EDGE_PADDING then
-            if mrp == "BOTTOMRIGHT" then mrp = "TOPRIGHT" elseif mrp == "BOTTOMLEFT" then mrp = "TOPLEFT" end
-            my = MENU_TO_TRIGGER_PADDING; pmta = math.abs(tt) - MENU_TO_TRIGGER_PADDING - mh
+        local menuWidth, menuHeight = menuFrame:GetSize()
+        local triggerL, triggerB, triggerW, triggerH = triggerButton:GetLeft(), triggerButton:GetBottom(), triggerButton:GetWidth(), triggerButton:GetHeight()
+
+        if not triggerL then
+            triggerL, triggerB, triggerW, triggerH = 0,0,TRIGGER_BUTTON_SIZE,TRIGGER_BUTTON_SIZE
         end
-        if pmta < SCREEN_EDGE_PADDING then
-            if mrp == "TOPRIGHT" then mrp = "BOTTOMRIGHT" elseif mrp == "TOPLEFT" then mrp = "BOTTOMLEFT" end
-            my = -MENU_TO_TRIGGER_PADDING
+        local triggerR, triggerT = triggerL + triggerW, triggerB + triggerH
+
+        local screenWidth, screenHeight = GetScreenWidth(), GetScreenHeight()
+
+        local preferredPlacements = {
+            { menuAnchor = "TOPLEFT",     triggerAnchor = "BOTTOMRIGHT", xOff = MENU_TO_TRIGGER_PADDING, yOff = -MENU_TO_TRIGGER_PADDING },
+            { menuAnchor = "TOPRIGHT",    triggerAnchor = "BOTTOMLEFT",  xOff = -MENU_TO_TRIGGER_PADDING, yOff = -MENU_TO_TRIGGER_PADDING },
+            { menuAnchor = "BOTTOMLEFT",  triggerAnchor = "TOPRIGHT",    xOff = MENU_TO_TRIGGER_PADDING, yOff = MENU_TO_TRIGGER_PADDING  },
+            { menuAnchor = "BOTTOMRIGHT", triggerAnchor = "TOPLEFT",     xOff = -MENU_TO_TRIGGER_PADDING, yOff = MENU_TO_TRIGGER_PADDING },
+            { menuAnchor = "TOPLEFT",     triggerAnchor = "TOPRIGHT",    xOff = MENU_TO_TRIGGER_PADDING, yOff = 0 },
+            { menuAnchor = "TOPRIGHT",    triggerAnchor = "TOPLEFT",     xOff = -MENU_TO_TRIGGER_PADDING, yOff = 0 },
+            { menuAnchor = "BOTTOMLEFT",  triggerAnchor = "TOPLEFT",     xOff = 0, yOff = MENU_TO_TRIGGER_PADDING },
+            { menuAnchor = "TOPLEFT",     triggerAnchor = "BOTTOMLEFT",  xOff = 0, yOff = -MENU_TO_TRIGGER_PADDING },
+        }
+
+        local bestPlacementInfo = nil
+
+        for _, placement in ipairs(preferredPlacements) do
+            local testFrame = CreateFrame("Frame")
+            testFrame:SetSize(menuWidth, menuHeight)
+            testFrame:SetPoint(placement.menuAnchor, triggerButton, placement.triggerAnchor, placement.xOff, placement.yOff)
+            local tempMenuL, tempMenuB = testFrame:GetLeft(), testFrame:GetBottom()
+            testFrame:Hide()
+
+            if tempMenuL then
+                local tempMenuR = tempMenuL + menuWidth
+                local tempMenuT = tempMenuB + menuHeight
+
+                local isOnScreen = (tempMenuL >= SCREEN_EDGE_PADDING and
+                                    tempMenuR <= screenWidth - SCREEN_EDGE_PADDING and
+                                    tempMenuB >= SCREEN_EDGE_PADDING and
+                                    tempMenuT <= screenHeight - SCREEN_EDGE_PADDING)
+
+                local overlapsTrigger = CheckRectOverlap(tempMenuL, tempMenuR, tempMenuT, tempMenuB, triggerL, triggerR, triggerT, triggerB)
+
+                if isOnScreen and not overlapsTrigger then
+                    bestPlacementInfo = placement
+                    break
+                end
+            end
         end
-        if pml < SCREEN_EDGE_PADDING then
-            if mrp == "BOTTOMLEFT" then mrp = "BOTTOMRIGHT" elseif mrp == "TOPLEFT" then mrp = "TOPRIGHT" end
-            mx = MENU_TO_TRIGGER_PADDING
+
+        if not bestPlacementInfo then
+            for _, placement in ipairs(preferredPlacements) do
+                local testFrame = CreateFrame("Frame")
+                testFrame:SetSize(menuWidth, menuHeight)
+                testFrame:SetPoint(placement.menuAnchor, triggerButton, placement.triggerAnchor, placement.xOff, placement.yOff)
+                local tempMenuL, tempMenuB = testFrame:GetLeft(), testFrame:GetBottom()
+                testFrame:Hide()
+
+                if tempMenuL then
+                    local tempMenuR = tempMenuL + menuWidth
+                    local tempMenuT = tempMenuB + menuHeight
+                    local isOnScreen = (tempMenuL >= SCREEN_EDGE_PADDING and
+                                        tempMenuR <= screenWidth - SCREEN_EDGE_PADDING and
+                                        tempMenuB >= SCREEN_EDGE_PADDING and
+                                        tempMenuT <= screenHeight - SCREEN_EDGE_PADDING)
+                    if isOnScreen then
+                        bestPlacementInfo = placement
+                        break
+                    end
+                end
+            end
         end
-        menuFrame:SetPoint(mp, mrt, mrp, mx, my)
+
+        if not bestPlacementInfo then
+            bestPlacementInfo = preferredPlacements[1]
+        end
+
+        menuFrame:ClearAllPoints()
+        menuFrame:SetPoint(bestPlacementInfo.menuAnchor, triggerButton, bestPlacementInfo.triggerAnchor, bestPlacementInfo.xOff, bestPlacementInfo.yOff)
+
+        local finalL, finalB = menuFrame:GetLeft(), menuFrame:GetBottom()
+        if finalL then
+            local finalR, finalT = finalL + menuWidth, finalB + menuHeight
+            local xOffset, yOffset = bestPlacementInfo.xOff, bestPlacementInfo.yOff
+
+            if finalR > screenWidth - SCREEN_EDGE_PADDING then
+                xOffset = xOffset - (finalR - (screenWidth - SCREEN_EDGE_PADDING))
+            end
+            if finalL < SCREEN_EDGE_PADDING then
+                xOffset = xOffset + (SCREEN_EDGE_PADDING - finalL)
+            end
+            if finalT > screenHeight - SCREEN_EDGE_PADDING then
+                yOffset = yOffset - (finalT - (screenHeight - SCREEN_EDGE_PADDING))
+            end
+            if finalB < SCREEN_EDGE_PADDING then
+                yOffset = yOffset + (SCREEN_EDGE_PADDING - finalB)
+            end
+            menuFrame:ClearAllPoints()
+            menuFrame:SetPoint(bestPlacementInfo.menuAnchor, triggerButton, bestPlacementInfo.triggerAnchor, xOffset, yOffset)
+        end
+
         menuFrame:Show()
         if UpdateAllSoundSettings then UpdateAllSoundSettings(true) end
+        if UpdateTriggerButtonLook then UpdateTriggerButtonLook() end
     end
-    if UpdateTriggerButtonLook then UpdateTriggerButtonLook() end
 end
 
 local function CreateVolumeSliderWithCheckbox(parent, enableCVarNameForNonMaster, labelText, cVarToControl, currentY, isThisTheMasterRow)
@@ -271,7 +359,7 @@ local function CreateVolumeSliderWithCheckbox(parent, enableCVarNameForNonMaster
     txt:SetText(string.format("%d%%", initialVal * 100))
 
     if sldrFrame.Init then sldrFrame:Init(initialVal, 0, 1, 100, nil)
-    else DebugPrint(string.format("CRITICAL: sldrFrame.Init method not found for %s", cVarToControl)) end
+    else DebugPrint("CRITICAL: sldrFrame.Init method not found for " .. cVarToControl) end
 
     if sldrFrame.RegisterCallback then
         sldrFrame:RegisterCallback(MinimalSliderWithSteppersMixin.Event.OnValueChanged, function(cb_sldr, cb_val, cb_input)
@@ -282,7 +370,7 @@ local function CreateVolumeSliderWithCheckbox(parent, enableCVarNameForNonMaster
             if cb_sldr.textWidget then cb_sldr.textWidget:SetText(string.format("%d%%", v * 100)) end
             if cb_sldr.cvarName == "Sound_MasterVolume" then UpdateTriggerButtonLook() end
         end, sldrFrame)
-    else DebugPrint(string.format("CRITICAL: sldrFrame.RegisterCallback not found for %s", cVarToControl)) end
+    else DebugPrint("CRITICAL: sldrFrame.RegisterCallback not found for " .. cVarToControl) end
 
     C_Timer.After(0.05, function()
         if sldrFrame and sldrFrame.Slider and sldrFrame.Slider.Thumb and not sldrFrame.Slider.Thumb:IsShown() then sldrFrame.Slider.Thumb:Show()
@@ -319,7 +407,6 @@ RestartSoundSystem = function()
     end
 
     if not restarted then
-        DebugPrint("Sound system restart function not found.")
         isSoundSystemRestarting = false
         C_Timer.After(0.1, function() if UpdateAllSoundSettings then UpdateAllSoundSettings(true) end end)
         return false, "Error: Could not restart sound system."
@@ -363,7 +450,7 @@ end
 
 CreateMenuControls = function()
     menuFrame = CreateFrame("Frame", ADDON_NAME .. "MenuFrame", UIParent, "SettingsFrameTemplate")
-    if not menuFrame then DebugPrint("CRITICAL: Failed to create menuFrame with SettingsFrameTemplate"); return end
+    if not menuFrame then DebugPrint("CRITICAL: Failed to create menuFrame"); return end
 
     if menuFrame.NineSlice and menuFrame.NineSlice.Text then
         menuFrame.NineSlice.Text:SetText(DISPLAY_ADDON_NAME)
@@ -374,16 +461,10 @@ CreateMenuControls = function()
     end
 
     if menuFrame.ClosePanelButton then
-        menuFrame.ClosePanelButton:SetScript("OnClick", function()
-            menuFrame:Hide()
-            if UpdateTriggerButtonLook then UpdateTriggerButtonLook() end
-        end)
+        menuFrame.ClosePanelButton:SetScript("OnClick", function() menuFrame:Hide() end)
     else
         local closeButton = CreateFrame("Button", ADDON_NAME .. "MenuFrameCloseButton", menuFrame, "UIPanelCloseButtonDefaultAnchors")
-        closeButton:SetScript("OnClick", function()
-            menuFrame:Hide()
-            if UpdateTriggerButtonLook then UpdateTriggerButtonLook() end
-        end)
+        closeButton:SetScript("OnClick", function() menuFrame:Hide() end)
     end
 
     menuFrame:SetAttribute("UIPanelLayout-enabled", true)
@@ -391,9 +472,11 @@ CreateMenuControls = function()
     menuFrame:SetAttribute("UIPanelLayout-whileDead", true)
     tinsert(UISpecialFrames, menuFrame:GetName())
 
-    if menuFrame.Bg then
-        menuFrame.Bg:Hide()
-    end
+    menuFrame:SetScript("OnHide", function(self)
+        if UpdateTriggerButtonLook then UpdateTriggerButtonLook() end
+    end)
+
+    if menuFrame.Bg then menuFrame.Bg:Hide() end
     local newBg = menuFrame:CreateTexture(nil, "BACKGROUND", nil, -1)
     newBg:SetPoint("TOPLEFT", menuFrame, "TOPLEFT", TEMPLATE_CONTENT_OFFSET_LEFT, -TEMPLATE_CONTENT_OFFSET_TOP)
     newBg:SetPoint("BOTTOMRIGHT", menuFrame, "BOTTOMRIGHT", -TEMPLATE_CONTENT_OFFSET_RIGHT, TEMPLATE_CONTENT_OFFSET_BOTTOM)
@@ -567,7 +650,6 @@ CreateTriggerButton = function()
 
         if button == "LeftButton" then
             if IsAltKeyDown() then
-                -- Sürükleme OnDragStart'ta ele alınacak
             elseif IsShiftKeyDown() then
                 local cs = GetCVarBool("Sound_EnableAllSound") == true
                 SetCVar("Sound_EnableAllSound", not cs and 1 or 0); PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
@@ -608,16 +690,16 @@ CreateTriggerButton = function()
                 if menuFrame and menuFrame:IsShown() then menuFrame:Hide() end
                 UpdateTriggerButtonLook()
                 print(DISPLAY_ADDON_NAME .. ": Trigger position reset.")
-            else -- Sadece Sağ Tık (modifier yok)
-                PlaySound(SOUNDKIT.U_CHAT_SCROLL_BUTTON) -- Bir ses efekti
+            else
+                PlaySound(SOUNDKIT.U_CHAT_SCROLL_BUTTON)
                 local success, resultMessage = RestartSoundSystem()
-                if not (menuFrame and menuFrame:IsShown()) then -- Menü kapalıysa chat'e yaz
+                if not (menuFrame and menuFrame:IsShown()) then
                     if success then
                         DEFAULT_CHAT_FRAME:AddMessage(DISPLAY_ADDON_NAME .. ": Sound system restarted. Current device: |cFF00FF00" .. tostring(resultMessage) .. "|r.")
                     else
                         DEFAULT_CHAT_FRAME:AddMessage(DISPLAY_ADDON_NAME .. ": |cFFFF0000" .. tostring(resultMessage) .. "|r")
                     end
-                else -- Menü açıksa da bilgi verilebilir
+                else
                      if success then
                         DEFAULT_CHAT_FRAME:AddMessage(DISPLAY_ADDON_NAME .. ": Sound system restarted.")
                     else
@@ -652,7 +734,7 @@ CreateTriggerButton = function()
         GameTooltip:SetOwner(s,"ANCHOR_RIGHT");
         GameTooltip:AddLine(DISPLAY_ADDON_NAME);
         GameTooltip:AddLine(kc .. "Left Click" .. rc .. ac .. ": Toggle Menu" .. rc);
-        GameTooltip:AddLine(kc .. "Right Click" .. rc .. ac .. ": Reset Audio System" .. rc); -- YENİ
+        GameTooltip:AddLine(kc .. "Right Click" .. rc .. ac .. ": Reset Audio System" .. rc);
         GameTooltip:AddLine(kc .. "Shift + Left Click" .. rc .. ac .. ": Toggle All Sound" .. rc);
         GameTooltip:AddLine(kc .. "Shift + Right Click" .. rc .. ac .. ": Change Output Device" .. rc);
         GameTooltip:AddLine(kc .. "Alt + Left Click & Drag" .. rc .. ac .. ": Move Button" .. rc);
@@ -695,6 +777,9 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
                 if menuFrame and menuFrame:IsShown() or cN == "Sound_MasterVolume" or cN == "Sound_EnableAllSound" then
                      if UpdateAllSoundSettings then UpdateAllSoundSettings(menuFrame and menuFrame:IsShown()) end
                 end
+                if UpdateTriggerButtonLook and (cN == "Sound_MasterVolume" or cN == "Sound_EnableAllSound") then
+                    UpdateTriggerButtonLook()
+                end
             end
         end
         if relevantSliderFrame and relevantSliderFrame.programmaticChange then
@@ -719,8 +804,8 @@ SlashCmdList["AUDIOCONTROL"] = function(msg)
     elseif msg == "resetmenu" then
         AudioControlDB.triggerPosition = defaultTriggerPosition
         if triggerButton then triggerButton:ClearAllPoints(); local p = AudioControlDB.triggerPosition; triggerButton:SetPoint(p.point, _G[p.relativeTo] or UIParent, p.relativePoint, p.x, p.y) end
-        if menuFrame and menuFrame:IsShown() then menuFrame:Hide(); UpdateTriggerButtonLook() end
+        if menuFrame and menuFrame:IsShown() then menuFrame:Hide() end
         print(DISPLAY_ADDON_NAME .. ": Trigger position reset.")
     end
 end
-print(DISPLAY_ADDON_NAME .. " " .. "2.2" .. " loaded. Commands: /aca or /audioc")
+print(DISPLAY_ADDON_NAME .. " " .. "2.3" .. " loaded. Commands: /aca or /audioc")
