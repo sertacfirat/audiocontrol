@@ -2,7 +2,7 @@
 ## Title: Audio Control
 ## Notes: Provides a quick access menu for common sound settings.
 ## Author: Sertaç Fırat
-## Version: 2.2
+## Version: 2.3
 ## SavedVariablesPerCharacter: AudioControlDB
 ## IconTexture: Interface\AddOns\AudioControl\Media\icon32
 ## Dependencies: Blizzard_Settings, Blizzard_SharedXML
