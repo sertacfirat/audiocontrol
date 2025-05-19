@@ -114,6 +114,11 @@ https://github.com/sertacfirat/audiocontrol/commits/2.2
 
 Change Log summary:
 
+Version 2.3 (20250519)
+- Improved menu positioning logic: The panel will now attempt to open in various preferred locations around the trigger button to avoid overlapping it, while also respecting screen boundaries.
+- Fixed an issue where the trigger button's appearance might not update correctly when the panel was closed via the ESC key.
+- Minor code cleanup and removal of unnecessary debug messages.
+
 Version 2.2 (20250518/3)
 - Added new Trigger Button functionality:
     - Right Click (no modifiers): Resets the WoW sound system.
