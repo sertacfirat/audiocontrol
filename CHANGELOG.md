@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.3] - 2025-05-19 
+### Changed
+- Improved menu positioning logic: The panel will now attempt to open in various preferred locations around the trigger button to avoid overlapping it, while also respecting screen boundaries.
+- Fixed an issue where the trigger button's appearance might not update correctly when the panel was closed via the ESC key.
+- Minor code cleanup and removal of unnecessary debug messages.
+
+
 ## [2.2] - 2025-05-18 
 ### Added
 - New Trigger Button functionality:
